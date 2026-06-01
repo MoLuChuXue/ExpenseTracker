@@ -10,3 +10,4 @@ captures/
 app/build/
 shared/build/
 .claude/
+.kotlin/

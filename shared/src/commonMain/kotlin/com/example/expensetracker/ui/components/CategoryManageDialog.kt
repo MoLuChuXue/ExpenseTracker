@@ -11,11 +11,12 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -40,18 +40,17 @@ fun CategoryManageDialog(
 ) {
     var selectedType by remember { mutableStateOf("expense") }
 
-    val customCategories = remember(selectedType, customExpenseJson, customIncomeJson) {
-        val json = if (selectedType == "income") customIncomeJson else customExpenseJson
-        parseCustomCategories(json)
+    var expenseCategories by remember { mutableStateOf(loadCategories(customExpenseJson, getDefaultExpenseCategories())) }
+    var incomeCategories by remember { mutableStateOf(loadCategories(customIncomeJson, getDefaultIncomeCategories())) }
+
+    LaunchedEffect(customExpenseJson) {
+        expenseCategories = loadCategories(customExpenseJson, getDefaultExpenseCategories())
+    }
+    LaunchedEffect(customIncomeJson) {
+        incomeCategories = loadCategories(customIncomeJson, getDefaultIncomeCategories())
     }
 
-    val builtInCategories = remember(selectedType) {
-        if (selectedType == "income") incomeCategories else expenseCategories
-    }
-
-    val allCategories = remember(builtInCategories, customCategories) {
-        builtInCategories + customCategories
-    }
+    val currentCategories = if (selectedType == "income") incomeCategories else expenseCategories
 
     var showAddDialog by remember { mutableStateOf(false) }
 
@@ -65,7 +64,6 @@ fun CategoryManageDialog(
             color = MaterialTheme.colorScheme.surface
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -121,56 +119,96 @@ fun CategoryManageDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Category list
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    items(allCategories, key = { "${selectedType}_${it.name}" }) { category ->
+                    items(currentCategories.size) { index ->
+                        val category = currentCategories[index]
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
+                                // Reorder arrows
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    IconButton(
+                                        onClick = {
+                                            val newList = moveCategoryUp(currentCategories, index)
+                                            if (selectedType == "income") {
+                                                incomeCategories = newList
+                                                onSaveIncome(saveCategories(newList))
+                                            } else {
+                                                expenseCategories = newList
+                                                onSaveExpense(saveCategories(newList))
+                                            }
+                                        },
+                                        enabled = index > 0,
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowUp, null, modifier = Modifier.size(16.dp),
+                                            tint = if (index > 0) MaterialTheme.colorScheme.onSurfaceVariant
+                                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            val newList = moveCategoryDown(currentCategories, index)
+                                            if (selectedType == "income") {
+                                                incomeCategories = newList
+                                                onSaveIncome(saveCategories(newList))
+                                            } else {
+                                                expenseCategories = newList
+                                                onSaveExpense(saveCategories(newList))
+                                            }
+                                        },
+                                        enabled = index < currentCategories.size - 1,
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(16.dp),
+                                            tint = if (index < currentCategories.size - 1) MaterialTheme.colorScheme.onSurfaceVariant
+                                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                                    }
+                                }
+
                                 Surface(
                                     modifier = Modifier.size(36.dp),
                                     shape = RoundedCornerShape(8.dp),
                                     color = category.color.copy(alpha = 0.12f)
                                 ) {
-                                    Icon(
-                                        category.icon, null,
-                                        modifier = Modifier.padding(8.dp).fillMaxSize(),
-                                        tint = category.color
-                                    )
+                                    Icon(category.icon, null, modifier = Modifier.padding(8.dp).fillMaxSize(), tint = category.color)
                                 }
+
                                 Text(
                                     category.name,
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = FontWeight.Medium,
                                     modifier = Modifier.weight(1f)
                                 )
-                                if (category.isCustom) {
-                                    IconButton(
-                                        onClick = {
-                                            val newList = customCategories.filter { it.name != category.name }
-                                            val updatedJson = serializeCustomCategories(newList)
-                                            if (selectedType == "income") onSaveIncome(updatedJson)
-                                            else onSaveExpense(updatedJson)
-                                        },
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Delete, "删除",
-                                            modifier = Modifier.size(18.dp),
-                                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                                        )
-                                    }
+
+                                IconButton(
+                                    onClick = {
+                                        if (currentCategories.size <= 1) return@IconButton
+                                        val newList = currentCategories.filter { it.name != category.name }
+                                        if (selectedType == "income") {
+                                            incomeCategories = newList
+                                            onSaveIncome(saveCategories(newList))
+                                        } else {
+                                            expenseCategories = newList
+                                            onSaveExpense(saveCategories(newList))
+                                        }
+                                    },
+                                    enabled = currentCategories.size > 1,
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, "删除", modifier = Modifier.size(18.dp),
+                                        tint = if (currentCategories.size > 1) MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                                        else MaterialTheme.colorScheme.error.copy(alpha = 0.2f))
                                 }
                             }
                         }
@@ -178,7 +216,6 @@ fun CategoryManageDialog(
 
                     item { Spacer(modifier = Modifier.height(8.dp)) }
 
-                    // Add button
                     item {
                         Surface(
                             modifier = Modifier.fillMaxWidth().clickable { showAddDialog = true },
@@ -202,19 +239,21 @@ fun CategoryManageDialog(
             }
         }
 
-        // Add custom category sub-dialog
         if (showAddDialog) {
             AddCategoryDialog(
                 onDismiss = { showAddDialog = false },
                 onConfirm = { name, color ->
-                    val newCategory = CategoryInfo(name = name, icon = Icons.Filled.MoreHoriz, color = color, isCustom = true)
-                    val newList = customCategories + newCategory
-                    val updatedJson = serializeCustomCategories(newList)
-                    if (selectedType == "income") onSaveIncome(updatedJson)
-                    else onSaveExpense(updatedJson)
+                    val newList = currentCategories + CategoryInfo(name = name, icon = Icons.Filled.MoreHoriz, color = color)
+                    if (selectedType == "income") {
+                        incomeCategories = newList
+                        onSaveIncome(saveCategories(newList))
+                    } else {
+                        expenseCategories = newList
+                        onSaveExpense(saveCategories(newList))
+                    }
                     showAddDialog = false
                 },
-                existingNames = allCategories.map { it.name }
+                existingNames = currentCategories.map { it.name }
             )
         }
     }
@@ -227,7 +266,7 @@ private fun AddCategoryDialog(
     existingNames: List<String>
 ) {
     var name by remember { mutableStateOf("") }
-    var selectedColor by remember { mutableStateOf(getCustomCategoryColors()[0]) }
+    var selectedColor by remember { mutableStateOf(customColorPalette[0]) }
     val nameError = name.isNotBlank() && existingNames.any { it == name.trim() }
 
     AlertDialog(
@@ -260,7 +299,7 @@ private fun AddCategoryDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(getCustomCategoryColors()) { color ->
+                        items(customColorPalette) { color ->
                             val isSelected = selectedColor == color
                             Box(
                                 modifier = Modifier

@@ -57,7 +57,7 @@ fun AddExpenseDialog(
         val editCat = if (isEditing) editExpense?.category else null
         mutableStateOf(
             if (editCat != null && currentCategories.any { it.name == editCat }) editCat
-            else currentCategories[0].name
+            else currentCategories.firstOrNull()?.name ?: ""
         )
     }
     var note by remember { mutableStateOf(editExpense?.note ?: "") }
@@ -92,7 +92,7 @@ fun AddExpenseDialog(
                     Surface(
                         modifier = Modifier.weight(1f).clickable {
                             selectedType = "expense"
-                            selectedCategory = expenseCategories[0].name
+                            selectedCategory = (getCategoriesByType("expense", customExpenseJson).firstOrNull()?.name ?: "")
                         },
                         shape = RoundedCornerShape(10.dp),
                         color = if (isExpense) MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
@@ -111,7 +111,7 @@ fun AddExpenseDialog(
                     Surface(
                         modifier = Modifier.weight(1f).clickable {
                             selectedType = "income"
-                            selectedCategory = incomeCategories[0].name
+                            selectedCategory = (getCategoriesByType("income", customIncomeJson).firstOrNull()?.name ?: "")
                         },
                         shape = RoundedCornerShape(10.dp),
                         color = if (isInc) Color(0xFF4CAF50).copy(alpha = 0.1f)
