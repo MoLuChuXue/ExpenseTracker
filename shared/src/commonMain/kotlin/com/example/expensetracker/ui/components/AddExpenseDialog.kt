@@ -26,7 +26,7 @@ import kotlinx.datetime.Clock
 @Composable
 fun AddExpenseDialog(
     onDismiss: () -> Unit,
-    onConfirm: (amount: Double, category: String, note: String, dateMillis: Long, type: String) -> Unit,
+    onConfirm: (amount: Long, category: String, note: String, dateMillis: Long, type: String) -> Unit,
     editExpense: Expense? = null,
     customExpenseJson: String = "",
     customIncomeJson: String = "",
@@ -48,8 +48,7 @@ fun AddExpenseDialog(
         mutableStateOf(
             if (isEditing) {
                 val amt = editExpense!!.amount
-                if (amt == amt.toLong().toDouble()) amt.toLong().toString()
-                else amt.toString()
+                amt.toMoneyString()
             } else ""
         )
     }
@@ -68,8 +67,8 @@ fun AddExpenseDialog(
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
 
-    val amount = amountText.toDoubleOrNull()
-    val isValid = amount != null && amount > 0 && amount <= 99999999.0 && selectedCategory.isNotEmpty()
+    val amountCents = if (amountText.isNotEmpty()) amountText.parseCents() else null
+    val isValid = amountCents != null && amountCents > 0L && amountCents <= 9999999900L && selectedCategory.isNotEmpty()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -132,7 +131,7 @@ fun AddExpenseDialog(
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { newValue ->
-                        if (newValue.isEmpty() || (newValue.matches(Regex("^\\d*\\.?\\d{0,2}$")) && (newValue.toDoubleOrNull() ?: 0.0) <= 99999999.0)) {
+                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
                             amountText = newValue
                         }
                     },
@@ -222,7 +221,9 @@ fun AddExpenseDialog(
                     value = note,
                     onValueChange = { note = it },
                     placeholder = { Text("添加备注…") },
-                    singleLine = true,
+                    singleLine = false,
+                    maxLines = 3,
+                    minLines = 1,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -231,7 +232,7 @@ fun AddExpenseDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    amount?.let { onConfirm(it, selectedCategory, note, selectedDate, selectedType) }
+                    amountCents?.let { onConfirm(it, selectedCategory, note, selectedDate, selectedType) }
                 },
                 enabled = isValid,
                 shape = RoundedCornerShape(10.dp)

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,11 +23,10 @@ fun ExpenseItem(
     onDelete: () -> Unit,
     onEdit: () -> Unit,
     modifier: Modifier = Modifier,
-    customExpenseJson: String = "",
-    customIncomeJson: String = ""
+    categoryMap: Map<String, CategoryInfo> = emptyMap()
 ) {
-    val category = remember(expense.category, customExpenseJson, customIncomeJson) {
-        getCategoryInfo(expense.category, customExpenseJson, customIncomeJson)
+    val category = remember(expense.category) {
+        categoryMap[expense.category] ?: CategoryInfo(expense.category, Icons.Filled.MoreHoriz, Color(0xFF9E9E9E))
     }
     val isIncome = expense.type == "income"
     val formattedDate = remember(expense.dateMillis) { formatDate(expense.dateMillis, "MM/dd HH:mm") }

@@ -31,7 +31,7 @@ private enum class ChartPeriod { DAY, MONTH, YEAR }
 
 data class PieSlice(
     val category: String,
-    val amount: Double,
+    val amount: Long,
     val color: Color
 )
 
@@ -172,7 +172,7 @@ fun PieChartDialog(
                     }) { Text(">", fontWeight = FontWeight.Light) }
                 }
 
-                if (totalAmount == 0.0) {
+                if (totalAmount == 0L) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("该时段暂无支出记录", style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -206,7 +206,7 @@ fun PieChartDialog(
                         }
 
                         items(slices) { slice ->
-                            val pct = if (totalAmount > 0) (slice.amount / totalAmount * 100).toInt() else 0
+                            val pct = if (totalAmount > 0) (slice.amount.toDouble() / totalAmount.toDouble() * 100).toInt() else 0
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
@@ -234,7 +234,7 @@ fun PieChartDialog(
 }
 
 @Composable
-private fun PieChartCanvas(slices: List<PieSlice>, totalAmount: Double, modifier: Modifier = Modifier) {
+private fun PieChartCanvas(slices: List<PieSlice>, totalAmount: Long, modifier: Modifier = Modifier) {
     val surfaceColor = MaterialTheme.colorScheme.surface
     Canvas(modifier = modifier) {
         val strokeWidth = 4.dp.toPx()
@@ -242,7 +242,7 @@ private fun PieChartCanvas(slices: List<PieSlice>, totalAmount: Double, modifier
         val center = Offset(size.width / 2, size.height / 2)
         var startAngle = -90f
         slices.forEach { slice ->
-            val sweepAngle = if (totalAmount > 0) (slice.amount / totalAmount * 360).toFloat() else 0f
+            val sweepAngle = if (totalAmount > 0) (slice.amount.toDouble() / totalAmount.toDouble() * 360).toFloat() else 0f
             drawArc(color = slice.color, startAngle = startAngle, sweepAngle = sweepAngle, useCenter = true,
                 topLeft = Offset(center.x - radius, center.y - radius), size = Size(radius * 2, radius * 2))
             startAngle += sweepAngle

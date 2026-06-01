@@ -5,13 +5,13 @@ import com.russhwolf.settings.Settings
 class SettingsManager {
     private val settings: Settings = getSettings()
 
-    var budget: Double
-        get() = settings.getDouble("budget", 0.0)
-        set(value) = settings.putDouble("budget", value)
+    var budget: Long
+        get() = settings.getLong("budget", 0L)
+        set(value) = settings.putLong("budget", value)
 
-    var balance: Double
-        get() = settings.getDouble("balance", 0.0)
-        set(value) = settings.putDouble("balance", value)
+    var balance: Long
+        get() = settings.getLong("balance", 0L)
+        set(value) = settings.putLong("balance", value)
 
     var themeIndex: Int
         get() = settings.getInt("theme_index", 0)

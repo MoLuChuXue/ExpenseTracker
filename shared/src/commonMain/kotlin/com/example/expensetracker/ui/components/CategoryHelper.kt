@@ -133,6 +133,14 @@ fun resolveCategoryInfo(name: String, expenseJson: String, incomeJson: String): 
 fun getCategoryInfo(categoryName: String, customExpenseJson: String = "", customIncomeJson: String = ""): CategoryInfo =
     resolveCategoryInfo(categoryName, customExpenseJson, customIncomeJson)
 
+fun buildCategoryLookup(expenseJson: String, incomeJson: String): Map<String, CategoryInfo> {
+    val all = loadCategories(expenseJson, defaultExpenseCategories) +
+            loadCategories(incomeJson, defaultIncomeCategories) +
+            defaultExpenseCategories.map { storedToCategory(it) } +
+            defaultIncomeCategories.map { storedToCategory(it) }
+    return all.associateBy { it.name }
+}
+
 fun moveCategoryUp(list: List<CategoryInfo>, index: Int): List<CategoryInfo> {
     if (index <= 0) return list
     val mutable = list.toMutableList()

@@ -15,6 +15,8 @@ import com.example.expensetracker.ui.theme.ExpenseTrackerTheme
 import com.example.expensetracker.ui.theme.themePresets
 import com.example.expensetracker.util.*
 import com.example.expensetracker.viewmodel.ExpenseViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.TimeZone
@@ -53,15 +55,16 @@ fun App(
     // Auto-backup on data changes
     LaunchedEffect(dataChangeSignal.intValue) {
         if (dataChangeSignal.intValue > 0 && onAutoBackup != null && backupEnabled) {
-            kotlinx.coroutines.delay(300)
-            val json = exportToJson(
-                BackupData(
-                    exportDate = formatDate(Clock.System.now().toEpochMilliseconds(), "yyyy/MM/dd HH:mm"),
-                    budget = budget,
-                    balance = balance,
-                    expenses = expenses.map { it.toBackup() }
+            val json = withContext(Dispatchers.Default) {
+                exportToJson(
+                    BackupData(
+                        exportDate = formatDate(Clock.System.now().toEpochMilliseconds(), "yyyy/MM/dd HH:mm"),
+                        budget = budget,
+                        balance = balance,
+                        expenses = expenses.map { it.toBackup() }
+                    )
                 )
-            )
+            }
             onAutoBackup?.invoke(json)
         }
     }

@@ -13,10 +13,10 @@ interface ExpenseDao {
     fun getAllExpenses(): Flow<List<Expense>>
 
     @Query("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE type = 'expense'")
-    fun getTotalExpense(): Flow<Double>
+    fun getTotalExpense(): Flow<Long>
 
     @Query("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE type = 'income'")
-    fun getTotalIncome(): Flow<Double>
+    fun getTotalIncome(): Flow<Long>
 
     @Insert
     suspend fun insert(expense: Expense)

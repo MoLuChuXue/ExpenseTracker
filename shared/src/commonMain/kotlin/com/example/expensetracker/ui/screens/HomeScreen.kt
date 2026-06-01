@@ -1,6 +1,8 @@
 package com.example.expensetracker.ui.screens
 
 import androidx.compose.foundation.clickable
+import kotlinx.coroutines.delay
+import kotlin.math.roundToLong
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +15,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Search
@@ -32,10 +35,11 @@ import androidx.compose.ui.unit.dp
 import com.example.expensetracker.data.Expense
 import com.example.expensetracker.ui.components.AddExpenseDialog
 import com.example.expensetracker.ui.components.AssetLineChartDialog
+import com.example.expensetracker.ui.components.CategoryInfo
 import com.example.expensetracker.ui.components.ExpenseItem
 import com.example.expensetracker.ui.components.PieChartDialog
 import com.example.expensetracker.ui.components.SettingsDialog
-import com.example.expensetracker.ui.components.getCategoryInfo
+import com.example.expensetracker.ui.components.buildCategoryLookup
 import com.example.expensetracker.ui.theme.themePresets
 import com.example.expensetracker.util.*
 import kotlinx.datetime.Clock
@@ -47,15 +51,15 @@ private enum class TimeFilter { ALL, DAY, MONTH, YEAR, RANGE }
 @Composable
 fun HomeScreen(
     expenses: List<Expense>,
-    budget: Double,
-    balance: Double,
+    budget: Long,
+    balance: Long,
     themeIndex: Int,
     customExpenseJson: String,
     customIncomeJson: String,
-    onAddExpense: (Double, String, String, Long, String) -> Unit,
+    onAddExpense: (Long, String, String, Long, String) -> Unit,
     onUpdateExpense: (Expense) -> Unit,
     onDeleteExpense: (Expense) -> Unit,
-    onSaveSettings: (Double, Double, Int) -> Unit,
+    onSaveSettings: (Long, Long, Int) -> Unit,
     onSaveCustomCategories: (String, String) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
@@ -114,6 +118,19 @@ fun HomeScreen(
     }
     val filteredTotalIncome = remember(timeFilteredExpenses) {
         timeFilteredExpenses.filter { it.type == "income" }.sumOf { it.amount }
+    }
+
+    // 全时段收支（amount 已是 Long 分币，直接累加）
+    val allTimeTotalExpense = remember(expenses) {
+        expenses.filter { it.type == "expense" }.sumOf { it.amount }
+    }
+    val allTimeTotalIncome = remember(expenses) {
+        expenses.filter { it.type == "income" }.sumOf { it.amount }
+    }
+
+    // 预建分类查找表 — 避免滚动时每项都 JSON 解析
+    val categoryMap = remember(customExpenseJson, customIncomeJson) {
+        buildCategoryLookup(customExpenseJson, customIncomeJson)
     }
 
     val currentMonthExpense = remember(expenses, nowYear, nowMonth) {
@@ -179,6 +196,8 @@ fun HomeScreen(
                     TotalCard(
                         totalExpense = filteredTotalExpense,
                         totalIncome = filteredTotalIncome,
+                        allTimeTotalExpense = allTimeTotalExpense,
+                        allTimeTotalIncome = allTimeTotalIncome,
                         budget = budget,
                         balance = balance,
                         monthlyExpense = currentMonthExpense,
@@ -392,7 +411,7 @@ fun HomeScreen(
                             val isExpanded = category !in collapsedCategories
                             item(key = "header_$category") {
                                 CategoryHeader(
-                                    categoryInfo = getCategoryInfo(category, customExpenseJson, customIncomeJson),
+                                    categoryInfo = categoryMap[category] ?: CategoryInfo(category, Icons.Filled.MoreHoriz, Color(0xFF9E9E9E)),
                                     count = list.size,
                                     subtotal = list.sumOf { it.amount },
                                     isExpanded = isExpanded,
@@ -403,20 +422,26 @@ fun HomeScreen(
                                 )
                             }
                             if (isExpanded) {
-                                items(list, key = { it.id }) { expense ->
-                                    ExpenseItem(expense = expense, onDelete = { onDeleteExpense(expense) }, onEdit = { editingExpense = expense }, customExpenseJson = customExpenseJson, customIncomeJson = customIncomeJson)
+                                items(list, key = { it.id }, contentType = { "item" }) { expense ->
+                                    val delCb = remember(expense) { { onDeleteExpense(expense) } }
+                                    val editCb = remember(expense) { { editingExpense = expense } }
+                                    ExpenseItem(expense = expense, onDelete = delCb, onEdit = editCb, categoryMap = categoryMap)
                                 }
                             }
                         }
                     }
                     SortMode.BY_AMOUNT_DESC -> {
-                        items(amountSortedDesc, key = { it.id }) { expense ->
-                            ExpenseItem(expense = expense, onDelete = { onDeleteExpense(expense) }, onEdit = { editingExpense = expense }, customExpenseJson = customExpenseJson, customIncomeJson = customIncomeJson)
+                        items(amountSortedDesc, key = { it.id }, contentType = { "item" }) { expense ->
+                            val delCb = remember(expense) { { onDeleteExpense(expense) } }
+                            val editCb = remember(expense) { { editingExpense = expense } }
+                            ExpenseItem(expense = expense, onDelete = delCb, onEdit = editCb, categoryMap = categoryMap)
                         }
                     }
                     SortMode.BY_AMOUNT_ASC -> {
-                        items(amountSortedAsc, key = { it.id }) { expense ->
-                            ExpenseItem(expense = expense, onDelete = { onDeleteExpense(expense) }, onEdit = { editingExpense = expense }, customExpenseJson = customExpenseJson, customIncomeJson = customIncomeJson)
+                        items(amountSortedAsc, key = { it.id }, contentType = { "item" }) { expense ->
+                            val delCb = remember(expense) { { onDeleteExpense(expense) } }
+                            val editCb = remember(expense) { { editingExpense = expense } }
+                            ExpenseItem(expense = expense, onDelete = delCb, onEdit = editCb, categoryMap = categoryMap)
                         }
                     }
                     SortMode.BY_DATE -> {
@@ -426,7 +451,7 @@ fun HomeScreen(
                                 DayHeader(
                                     label = formatDate(dayList.first().dateMillis, "yyyy年MM月dd日"),
                                     count = dayList.size,
-                                    total = dayList.sumOf { it.amount },
+                                    total = dayList.sumOf { if (it.type == "expense") it.amount else -it.amount },
                                     isExpanded = isExpanded,
                                     onToggle = {
                                         collapsedDays = if (isExpanded) collapsedDays + dayKey
@@ -435,8 +460,10 @@ fun HomeScreen(
                                 )
                             }
                             if (isExpanded) {
-                                items(dayList, key = { it.id }) { expense ->
-                                    ExpenseItem(expense = expense, onDelete = { onDeleteExpense(expense) }, onEdit = { editingExpense = expense }, customExpenseJson = customExpenseJson, customIncomeJson = customIncomeJson)
+                                items(dayList, key = { it.id }, contentType = { "item" }) { expense ->
+                                    val delCb = remember(expense) { { onDeleteExpense(expense) } }
+                                    val editCb = remember(expense) { { editingExpense = expense } }
+                                    ExpenseItem(expense = expense, onDelete = delCb, onEdit = editCb, categoryMap = categoryMap)
                                 }
                             }
                         }
@@ -537,13 +564,41 @@ fun HomeScreen(
 }
 
 @Composable
+private fun AnimatedBalanceText(targetCents: Long, hidden: Boolean) {
+    var displayCents by remember { mutableStateOf(targetCents) }
+    val isFirst = remember { mutableStateOf(true) }
 
-private fun TotalCard(totalExpense: Double, totalIncome: Double, budget: Double, balance: Double, monthlyExpense: Double, primaryColor: Color, timeLabel: String, balanceHidden: Boolean = false, onToggleBalanceHidden: (() -> Unit)? = null) {
-    val netAmount = totalIncome - totalExpense
-    val currentBalance = balance + netAmount
-    val budgetProgress = if (budget > 0) (monthlyExpense / budget).toFloat().coerceIn(0f, 1f) else 0f
-    val budgetRemaining = (budget - monthlyExpense).coerceAtLeast(0.0)
-    val hidden = balance > 0 && balanceHidden
+    LaunchedEffect(targetCents) {
+        if (isFirst.value) {
+            displayCents = targetCents
+            isFirst.value = false
+        } else {
+            val startCents = displayCents
+            val diff = targetCents - startCents
+            val stepMs = 16L
+            val totalSteps = 50 // ~800ms
+            for (i in 1..totalSteps) {
+                val t = i.toDouble() / totalSteps
+                val eased = 1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t) // cubic ease-out
+                displayCents = startCents + (diff.toDouble() * eased).roundToLong()
+                kotlinx.coroutines.delay(stepMs)
+            }
+            displayCents = targetCents
+        }
+    }
+
+    Text(
+        if (hidden) "****" else "¥${displayCents.toMoneyString()}",
+        style = MaterialTheme.typography.displayLarge, color = Color.White, fontWeight = FontWeight.Bold
+    )
+}
+
+@Composable
+private fun TotalCard(totalExpense: Long, totalIncome: Long, allTimeTotalExpense: Long = 0L, allTimeTotalIncome: Long = 0L, budget: Long, balance: Long, monthlyExpense: Long, primaryColor: Color, timeLabel: String, balanceHidden: Boolean = false, onToggleBalanceHidden: (() -> Unit)? = null) {
+    val targetCents = balance + allTimeTotalIncome - allTimeTotalExpense
+    val budgetProgress = if (budget > 0L) (monthlyExpense.toDouble() / budget.toDouble()).toFloat().coerceIn(0f, 1f) else 0f
+    val rawRemaining = budget - monthlyExpense
+    val hidden = balance > 0L && balanceHidden
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -568,10 +623,7 @@ private fun TotalCard(totalExpense: Double, totalIncome: Double, budget: Double,
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                if (hidden) "****" else "¥${currentBalance.toMoneyString()}",
-                style = MaterialTheme.typography.displayLarge, color = Color.White, fontWeight = FontWeight.Bold
-            )
+            AnimatedBalanceText(targetCents = targetCents, hidden = hidden)
             if (balance > 0) {
                 Text("当前余额", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
             }
@@ -599,9 +651,9 @@ private fun TotalCard(totalExpense: Double, totalIncome: Double, budget: Double,
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("预算 ¥${budget.toMoneyString()}", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
                     Text(
-                        if (budgetRemaining > 0) "剩余 ¥${if (hidden) "****" else budgetRemaining.toMoneyString()}" else "超支 ¥${if (hidden) "****" else (-budgetRemaining).toMoneyString()}",
+                        if (rawRemaining > 0) "剩余 ¥${if (hidden) "****" else rawRemaining.toMoneyString()}" else "超支 ¥${if (hidden) "****" else (-rawRemaining).toMoneyString()}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (budgetRemaining > 0) Color.White.copy(alpha = 0.7f) else Color(0xFFFFCDD2)
+                        color = if (rawRemaining > 0) Color.White.copy(alpha = 0.7f) else Color(0xFFFFCDD2)
                     )
                 }
             }
@@ -613,7 +665,7 @@ private fun TotalCard(totalExpense: Double, totalIncome: Double, budget: Double,
 private fun CategoryHeader(
     categoryInfo: com.example.expensetracker.ui.components.CategoryInfo,
     count: Int,
-    subtotal: Double,
+    subtotal: Long,
     isExpanded: Boolean,
     onToggle: () -> Unit
 ) {
@@ -638,7 +690,7 @@ private fun CategoryHeader(
 }
 
 @Composable
-private fun DayHeader(label: String, count: Int, total: Double, isExpanded: Boolean, onToggle: () -> Unit) {
+private fun DayHeader(label: String, count: Int, total: Long, isExpanded: Boolean, onToggle: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable { onToggle() }.padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically

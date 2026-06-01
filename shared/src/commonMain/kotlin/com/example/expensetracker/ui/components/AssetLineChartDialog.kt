@@ -37,15 +37,15 @@ private enum class LineChartPeriod { WEEK, MONTH, YEAR }
 private data class BalancePoint(
     val dateMillis: Long,
     val label: String,
-    val balance: Double,
-    val expense: Double,
-    val income: Double
+    val balance: Long,
+    val expense: Long,
+    val income: Long
 )
 
 @Composable
 fun AssetLineChartDialog(
     expenses: List<Expense>,
-    initialBalance: Double,
+    initialBalance: Long,
     onDismiss: () -> Unit
 ) {
     val nowYear = remember { currentYear() }
@@ -220,7 +220,7 @@ fun AssetLineChartDialog(
                         )
 
                         selectedPoint?.let { pt ->
-                            val netColor = if (pt.income - pt.expense >= 0) Color(0xFF4CAF50) else Color(0xFFE53935)
+                            val netColor = if (pt.income >= pt.expense) Color(0xFF4CAF50) else Color(0xFFE53935)
                             Surface(
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                                 shape = RoundedCornerShape(16.dp),
@@ -295,16 +295,16 @@ private fun LineChartCanvas(
         val chartWidth = chartRight - chartLeft
         val chartHeight = chartBottom - chartTop
 
-        val minBalance = points.minOf { it.balance }
-        val maxBalance = points.maxOf { it.balance }
+        val minBalance = points.minOf { it.balance }.toDouble()
+        val maxBalance = points.maxOf { it.balance }.toDouble()
         val dataRange = maxBalance - minBalance
-        val fallback = (abs(maxBalance) * 0.1).coerceAtLeast(100.0)
+        val fallback = (kotlin.math.abs(maxBalance) * 0.1).coerceAtLeast(100.0)
         val range = if (dataRange < 0.01) fallback else dataRange
         val yMin = minBalance - range * 0.15
         val yMax = maxBalance + range * 0.15
         val yRange = yMax - yMin
 
-        fun yPos(value: Double) = chartBottom - ((value - yMin) / yRange * chartHeight).toFloat()
+        fun yPos(value: Long) = chartBottom - ((value.toDouble() - yMin) / yRange * chartHeight).toFloat()
         fun xPos(index: Int) = chartLeft + chartWidth * index / (points.size - 1).coerceAtLeast(1)
 
         // Horizontal grid lines + Y-axis labels
@@ -366,22 +366,23 @@ private fun LineChartCanvas(
 }
 
 private fun formatAxisValue(value: Double): String {
-    val av = abs(value)
+    val v = value / 100.0
+    val av = kotlin.math.abs(v)
     return when {
-        av >= 100_000_000 -> "${(value / 100_000_000).roundToInt()}亿"
-        av >= 100_000 -> "${(value / 10_000).roundToInt()}万"
+        av >= 100_000_000 -> "${(v / 100_000_000).roundToInt()}亿"
+        av >= 100_000 -> "${(v / 10_000).roundToInt()}万"
         av >= 10_000 -> {
-            val v = value / 10_000
-            val dec = (abs(v - v.toLong().toDouble()) * 10).roundToInt()
-            if (dec == 0) "${v.toLong()}万" else "${v.toLong()}.${dec}万"
+            val w = v / 10_000
+            val dec = (kotlin.math.abs(w - w.toLong().toDouble()) * 10).roundToInt()
+            if (dec == 0) "${w.toLong()}万" else "${w.toLong()}.${dec}万"
         }
-        else -> value.toLong().toString()
+        else -> v.toLong().toString()
     }
 }
 
 private fun computeBalancePoints(
     expenses: List<Expense>,
-    initialBalance: Double,
+    initialBalance: Long,
     startMillis: Long,
     endMillis: Long,
     period: LineChartPeriod
@@ -424,7 +425,7 @@ private fun computeBalancePoints(
 
     // Keep only days with transactions, plus first and last as anchors
     return result.filterIndexed { i, pt ->
-        i == 0 || i == result.lastIndex || pt.expense > 0 || pt.income > 0
+        i == 0 || i == result.lastIndex || pt.expense > 0L || pt.income > 0L
     }
 }
 

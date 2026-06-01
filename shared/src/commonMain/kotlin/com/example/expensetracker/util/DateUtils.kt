@@ -112,8 +112,16 @@ fun currentDay(): Int {
     return now.toLocalDateTime(TimeZone.currentSystemDefault()).dayOfMonth
 }
 
-fun Double.toMoneyString(): String {
-    val whole = this.toLong()
-    val frac = ((this - whole) * 100).toLong().let { if (it < 0) -it else it }
-    return "$whole.${frac.toString().padStart(2, '0')}"
+fun Long.toMoneyString(): String {
+    val yuan = this / 100
+    val cents = (this % 100).let { if (it < 0) -it else it }
+    return "$yuan.${cents.toString().padStart(2, '0')}"
+}
+
+fun String.parseCents(): Long {
+    if (this.isEmpty()) return 0L
+    val parts = this.split(".")
+    val yuan = parts[0].toLong()
+    val cents = if (parts.size > 1) parts[1].padEnd(2, '0').take(2).toLong() else 0L
+    return yuan * 100 + cents
 }

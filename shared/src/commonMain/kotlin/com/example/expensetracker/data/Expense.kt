@@ -8,7 +8,7 @@ import kotlinx.datetime.Clock
 data class Expense(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    val amount: Double,
+    val amount: Long,
     val category: String,
     val note: String = "",
     val dateMillis: Long = Clock.System.now().toEpochMilliseconds(),

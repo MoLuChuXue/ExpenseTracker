@@ -26,24 +26,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.expensetracker.ui.theme.themePresets
+import com.example.expensetracker.util.parseCents
+import com.example.expensetracker.util.toMoneyString
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDialog(
-    currentBudget: Double,
-    currentBalance: Double,
+    currentBudget: Long,
+    currentBalance: Long,
     currentThemeIndex: Int,
     backupFolderUri: String = "",
     backupEnabled: Boolean = false,
     onDismiss: () -> Unit,
-    onSave: (budget: Double, balance: Double, themeIndex: Int) -> Unit,
+    onSave: (budget: Long, balance: Long, themeIndex: Int) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
     onPickBackupFolder: (() -> Unit)? = null,
     onToggleBackup: ((Boolean) -> Unit)? = null
 ) {
-    var budgetText by remember { mutableStateOf(if (currentBudget > 0) currentBudget.toLong().toString() else "") }
-    var balanceText by remember { mutableStateOf(if (currentBalance > 0) currentBalance.toLong().toString() else "") }
+    var budgetText by remember { mutableStateOf(if (currentBudget > 0) currentBudget.toMoneyString() else "") }
+    var balanceText by remember { mutableStateOf(if (currentBalance > 0) currentBalance.toMoneyString() else "") }
     var selectedThemeIndex by remember { mutableStateOf(currentThemeIndex) }
     var showImportConfirm by remember { mutableStateOf(false) }
 
@@ -262,8 +264,8 @@ fun SettingsDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val budget = budgetText.toDoubleOrNull() ?: 0.0
-                    val balance = balanceText.toDoubleOrNull() ?: 0.0
+                    val budget = budgetText.parseCents()
+                    val balance = balanceText.parseCents()
                     onSave(budget, balance, selectedThemeIndex)
                 },
                 shape = RoundedCornerShape(10.dp)
