@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.expensetracker"
         minSdk = 26
         targetSdk = 34
-        versionCode = 22
-        versionName = "2.5.2"
+        versionCode = 24
+        versionName = "3.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime)
     implementation(libs.androidx.core.ktx)
+    implementation("androidx.documentfile:documentfile:1.0.1")
 
     // Compose tooling (debug only)
     debugImplementation(libs.compose.ui.tooling)

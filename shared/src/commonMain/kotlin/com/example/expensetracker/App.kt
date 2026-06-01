@@ -27,10 +27,17 @@ fun App(
     onExportData: ((String) -> Unit)? = null,
     onRequestImport: (() -> Unit)? = null,
     pendingImportJson: String? = null,
-    onImportHandled: (() -> Unit)? = null
+    onImportHandled: (() -> Unit)? = null,
+    onAutoBackup: ((String) -> Unit)? = null,
+    onPickBackupFolder: (() -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
-    val viewModel = remember { ExpenseViewModel(database.expenseDao(), scope) }
+    val dataChangeSignal = remember { mutableIntStateOf(0) }
+    val viewModel = remember {
+        ExpenseViewModel(database.expenseDao(), scope) {
+            dataChangeSignal.intValue++
+        }
+    }
 
     val expenses by viewModel.expenses.collectAsState()
 
@@ -39,6 +46,25 @@ fun App(
     var balance by remember { mutableStateOf(settingsManager.balance) }
     var customExpenseJson by remember { mutableStateOf(settingsManager.customExpenseCategories) }
     var customIncomeJson by remember { mutableStateOf(settingsManager.customIncomeCategories) }
+    var backupFolderUri by remember { mutableStateOf(settingsManager.backupFolderUri) }
+    var backupEnabled by remember { mutableStateOf(settingsManager.backupEnabled) }
+    var balanceHidden by remember { mutableStateOf(settingsManager.balanceHidden) }
+
+    // Auto-backup on data changes
+    LaunchedEffect(dataChangeSignal.intValue) {
+        if (dataChangeSignal.intValue > 0 && onAutoBackup != null && backupEnabled) {
+            kotlinx.coroutines.delay(300)
+            val json = exportToJson(
+                BackupData(
+                    exportDate = formatDate(Clock.System.now().toEpochMilliseconds(), "yyyy/MM/dd HH:mm"),
+                    budget = budget,
+                    balance = balance,
+                    expenses = expenses.map { it.toBackup() }
+                )
+            )
+            onAutoBackup?.invoke(json)
+        }
+    }
 
     // V50 Thursday check
     val todayStr = remember {
@@ -113,7 +139,19 @@ fun App(
                 )
                 onExportData?.invoke(exportToJson(data))
             },
-            onImport = { onRequestImport?.invoke() }
+            onImport = { onRequestImport?.invoke() },
+            backupFolderUri = backupFolderUri,
+            backupEnabled = backupEnabled,
+            onPickBackupFolder = { onPickBackupFolder?.invoke() },
+            onToggleBackup = { enabled ->
+                backupEnabled = enabled
+                settingsManager.backupEnabled = enabled
+            },
+            balanceHidden = balanceHidden,
+            onToggleBalanceHidden = {
+                balanceHidden = !balanceHidden
+                settingsManager.balanceHidden = balanceHidden
+            }
         )
 
         if (showV50) {

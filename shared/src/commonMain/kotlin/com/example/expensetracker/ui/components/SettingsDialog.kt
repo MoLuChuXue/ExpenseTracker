@@ -13,11 +13,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -29,10 +33,14 @@ fun SettingsDialog(
     currentBudget: Double,
     currentBalance: Double,
     currentThemeIndex: Int,
+    backupFolderUri: String = "",
+    backupEnabled: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (budget: Double, balance: Double, themeIndex: Int) -> Unit,
     onExport: () -> Unit,
-    onImport: () -> Unit
+    onImport: () -> Unit,
+    onPickBackupFolder: (() -> Unit)? = null,
+    onToggleBackup: ((Boolean) -> Unit)? = null
 ) {
     var budgetText by remember { mutableStateOf(if (currentBudget > 0) currentBudget.toLong().toString() else "") }
     var balanceText by remember { mutableStateOf(if (currentBalance > 0) currentBalance.toLong().toString() else "") }
@@ -189,6 +197,61 @@ fun SettingsDialog(
                                     "导入数据",
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Auto-backup toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = if (backupEnabled) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "自动备份",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Switch(
+                            checked = backupEnabled,
+                            onCheckedChange = { onToggleBackup?.invoke(it) }
+                        )
+                    }
+
+                    // Folder picker
+                    if (backupEnabled) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().clickable { onPickBackupFolder?.invoke() },
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    if (backupFolderUri.isNotEmpty()) Icons.Default.FolderOpen else Icons.Default.Folder,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = if (backupFolderUri.isNotEmpty()) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    if (backupFolderUri.isNotEmpty()) "备份路径已设置" else "选择备份文件夹",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (backupFolderUri.isNotEmpty()) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }

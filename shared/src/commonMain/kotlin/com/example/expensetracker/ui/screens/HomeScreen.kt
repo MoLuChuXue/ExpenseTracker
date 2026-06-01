@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,7 +58,13 @@ fun HomeScreen(
     onSaveSettings: (Double, Double, Int) -> Unit,
     onSaveCustomCategories: (String, String) -> Unit,
     onExport: () -> Unit,
-    onImport: () -> Unit
+    onImport: () -> Unit,
+    backupFolderUri: String = "",
+    backupEnabled: Boolean = false,
+    onPickBackupFolder: (() -> Unit)? = null,
+    onToggleBackup: ((Boolean) -> Unit)? = null,
+    balanceHidden: Boolean = false,
+    onToggleBalanceHidden: (() -> Unit)? = null
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -175,6 +183,8 @@ fun HomeScreen(
                         balance = balance,
                         monthlyExpense = currentMonthExpense,
                         primaryColor = currentPreset.primary,
+                        balanceHidden = balanceHidden,
+                        onToggleBalanceHidden = onToggleBalanceHidden,
                         timeLabel = when (timeFilter) {
                             TimeFilter.ALL -> "全部"
                             TimeFilter.DAY -> "${filterYear}年${filterMonth}月${filterDay}日"
@@ -511,24 +521,29 @@ fun HomeScreen(
     if (showSettingsDialog) {
         SettingsDialog(
             currentBudget = budget, currentBalance = balance, currentThemeIndex = themeIndex,
+            backupFolderUri = backupFolderUri,
+            backupEnabled = backupEnabled,
             onDismiss = { showSettingsDialog = false },
             onSave = { newBudget, newBalance, newThemeIndex ->
                 onSaveSettings(newBudget, newBalance, newThemeIndex)
                 showSettingsDialog = false
             },
             onExport = onExport,
-            onImport = onImport
+            onImport = onImport,
+            onPickBackupFolder = { onPickBackupFolder?.invoke() },
+            onToggleBackup = { enabled -> onToggleBackup?.invoke(enabled) }
         )
     }
 }
 
 @Composable
 
-private fun TotalCard(totalExpense: Double, totalIncome: Double, budget: Double, balance: Double, monthlyExpense: Double, primaryColor: Color, timeLabel: String) {
+private fun TotalCard(totalExpense: Double, totalIncome: Double, budget: Double, balance: Double, monthlyExpense: Double, primaryColor: Color, timeLabel: String, balanceHidden: Boolean = false, onToggleBalanceHidden: (() -> Unit)? = null) {
     val netAmount = totalIncome - totalExpense
     val currentBalance = balance + netAmount
     val budgetProgress = if (budget > 0) (monthlyExpense / budget).toFloat().coerceIn(0f, 1f) else 0f
     val budgetRemaining = (budget - monthlyExpense).coerceAtLeast(0.0)
+    val hidden = balance > 0 && balanceHidden
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -537,20 +552,37 @@ private fun TotalCard(totalExpense: Double, totalIncome: Double, budget: Double,
         shadowElevation = 8.dp
     ) {
         Column(modifier = Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("收支概览 · $timeLabel", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("收支概览 · $timeLabel", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
+                if (balance > 0 && onToggleBalanceHidden != null) {
+                    Icon(
+                        if (hidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = if (hidden) "显示余额" else "隐藏余额",
+                        modifier = Modifier.size(20.dp).clickable { onToggleBalanceHidden() },
+                        tint = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(12.dp))
-            Text("¥${currentBalance.toMoneyString()}", style = MaterialTheme.typography.displayLarge, color = Color.White, fontWeight = FontWeight.Bold)
+            Text(
+                if (hidden) "****" else "¥${currentBalance.toMoneyString()}",
+                style = MaterialTheme.typography.displayLarge, color = Color.White, fontWeight = FontWeight.Bold
+            )
             if (balance > 0) {
                 Text("当前余额", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
             }
             Spacer(modifier = Modifier.height(14.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("+¥${totalIncome.toMoneyString()}", style = MaterialTheme.typography.titleMedium, color = Color(0xFFA5D6A7), fontWeight = FontWeight.SemiBold)
+                    Text("+¥${if (hidden) "****" else totalIncome.toMoneyString()}", style = MaterialTheme.typography.titleMedium, color = Color(0xFFA5D6A7), fontWeight = FontWeight.SemiBold)
                     Text("收入", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("-¥${totalExpense.toMoneyString()}", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("-¥${if (hidden) "****" else totalExpense.toMoneyString()}", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.SemiBold)
                     Text("支出", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
                 }
             }
@@ -567,7 +599,7 @@ private fun TotalCard(totalExpense: Double, totalIncome: Double, budget: Double,
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("预算 ¥${budget.toMoneyString()}", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
                     Text(
-                        if (budgetRemaining > 0) "剩余 ¥${budgetRemaining.toMoneyString()}" else "超支 ¥${(-budgetRemaining).toMoneyString()}",
+                        if (budgetRemaining > 0) "剩余 ¥${if (hidden) "****" else budgetRemaining.toMoneyString()}" else "超支 ¥${if (hidden) "****" else (-budgetRemaining).toMoneyString()}",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (budgetRemaining > 0) Color.White.copy(alpha = 0.7f) else Color(0xFFFFCDD2)
                     )

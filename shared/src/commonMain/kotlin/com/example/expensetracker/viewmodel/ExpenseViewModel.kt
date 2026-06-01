@@ -10,7 +10,8 @@ import kotlinx.coroutines.launch
 
 class ExpenseViewModel(
     private val dao: ExpenseDao,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val onDataChanged: (() -> Unit)? = null
 ) {
     val expenses: StateFlow<List<Expense>> = dao.getAllExpenses()
         .stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -32,18 +33,21 @@ class ExpenseViewModel(
                     type = type
                 )
             )
+            onDataChanged?.invoke()
         }
     }
 
     fun updateExpense(expense: Expense) {
         scope.launch {
             dao.update(expense)
+            onDataChanged?.invoke()
         }
     }
 
     fun deleteExpense(expense: Expense) {
         scope.launch {
             dao.delete(expense)
+            onDataChanged?.invoke()
         }
     }
 
@@ -51,6 +55,7 @@ class ExpenseViewModel(
         scope.launch {
             dao.deleteAll()
             dao.insertAll(expenses)
+            onDataChanged?.invoke()
         }
     }
 }

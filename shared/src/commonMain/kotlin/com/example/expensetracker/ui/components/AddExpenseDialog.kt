@@ -69,7 +69,7 @@ fun AddExpenseDialog(
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
 
     val amount = amountText.toDoubleOrNull()
-    val isValid = amount != null && amount > 0 && selectedCategory.isNotEmpty()
+    val isValid = amount != null && amount > 0 && amount <= 99999999.0 && selectedCategory.isNotEmpty()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -132,7 +132,7 @@ fun AddExpenseDialog(
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { newValue ->
-                        if (newValue.isEmpty() || newValue.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                        if (newValue.isEmpty() || (newValue.matches(Regex("^\\d*\\.?\\d{0,2}$")) && (newValue.toDoubleOrNull() ?: 0.0) <= 99999999.0)) {
                             amountText = newValue
                         }
                     },
