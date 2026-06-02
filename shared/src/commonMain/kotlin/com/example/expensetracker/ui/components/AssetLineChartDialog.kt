@@ -42,6 +42,13 @@ private data class BalancePoint(
     val income: Long
 )
 
+private data class RangeInfo(
+    val yMin: Double,
+    val yMax: Double,
+    val yRange: Double,
+    val yLabels: List<String>
+)
+
 @Composable
 fun AssetLineChartDialog(
     expenses: List<Expense>,
@@ -273,11 +280,34 @@ private fun LineChartCanvas(
     val axisLabelStyle = remember { TextStyle(fontSize = 10.sp, color = onSurfaceVariant, textAlign = TextAlign.Center) }
     val axisLabelStyleRight = remember { TextStyle(fontSize = 10.sp, color = onSurfaceVariant, textAlign = TextAlign.End) }
 
+    // Pre-compute range info and Y-axis labels so we can measure them
+    val rangeInfo = remember(points) {
+        if (points.isEmpty()) return@remember null
+        val minBalance = points.minOf { it.balance }.toDouble()
+        val maxBalance = points.maxOf { it.balance }.toDouble()
+        val dataRange = maxBalance - minBalance
+        val fallback = (abs(maxBalance) * 0.1).coerceAtLeast(100.0)
+        val range = if (dataRange < 0.01) fallback else dataRange
+        val yMin = minBalance - range * 0.15
+        val yMax = maxBalance + range * 0.15
+        val yRange = yMax - yMin
+        val yLabels = (0..3).map { i -> formatAxisValue(yMax - yRange * i / 3) }
+        RangeInfo(yMin, yMax, yRange, yLabels)
+    }
+
+    // Measure Y-axis labels to determine left margin
+    val yLabelWidths = remember(rangeInfo) {
+        rangeInfo?.yLabels?.map { textMeasurer.measure(it, axisLabelStyleRight).size.width } ?: emptyList()
+    }
+
     Canvas(
-        modifier = modifier.pointerInput(points.size) {
+        modifier = modifier.pointerInput(points.size, yLabelWidths) {
             detectTapGestures { offset ->
                 if (points.size <= 1) return@detectTapGestures
-                val chartLeft = 52.dp.toPx()
+                val leftPad = 8.dp.toPx()
+                val labelGap = 4.dp.toPx()
+                val maxYWidth = yLabelWidths.maxOrNull()?.toFloat() ?: 0f
+                val chartLeft = leftPad + maxYWidth + labelGap
                 val chartRight = size.width - 8.dp.toPx()
                 if (offset.x < chartLeft || offset.x > chartRight) return@detectTapGestures
                 val stepX = (chartRight - chartLeft) / (points.size - 1)
@@ -286,23 +316,28 @@ private fun LineChartCanvas(
             }
         }
     ) {
-        if (points.isEmpty()) return@Canvas
+        if (points.isEmpty() || rangeInfo == null) return@Canvas
 
-        val chartLeft = 52.dp.toPx()
+        val leftPad = 8.dp.toPx()
+        val labelGap = 4.dp.toPx()
+        val maxYWidth = yLabelWidths.maxOrNull()?.toFloat() ?: 0f
+        val chartLeft = leftPad + maxYWidth + labelGap
+
+        // Measure X-axis labels to determine bottom margin
+        val xLabelSizes = points.mapIndexedNotNull { i, pt ->
+            if (i % (if (points.size <= 7) 1 else points.size / 7).coerceAtLeast(1) == 0 || i == points.lastIndex)
+                textMeasurer.measure(pt.label, axisLabelStyle).size
+            else null
+        }
+        val xLabelHeight = xLabelSizes.maxOfOrNull { it.height }?.toFloat() ?: 0f
+
         val chartRight = size.width - 8.dp.toPx()
         val chartTop = 8.dp.toPx()
-        val chartBottom = size.height - 24.dp.toPx()
+        val chartBottom = size.height - 4.dp.toPx() - xLabelHeight
         val chartWidth = chartRight - chartLeft
         val chartHeight = chartBottom - chartTop
 
-        val minBalance = points.minOf { it.balance }.toDouble()
-        val maxBalance = points.maxOf { it.balance }.toDouble()
-        val dataRange = maxBalance - minBalance
-        val fallback = (kotlin.math.abs(maxBalance) * 0.1).coerceAtLeast(100.0)
-        val range = if (dataRange < 0.01) fallback else dataRange
-        val yMin = minBalance - range * 0.15
-        val yMax = maxBalance + range * 0.15
-        val yRange = yMax - yMin
+        val (yMin, yMax, yRange, yLabels) = rangeInfo
 
         fun yPos(value: Long) = chartBottom - ((value.toDouble() - yMin) / yRange * chartHeight).toFloat()
         fun xPos(index: Int) = chartLeft + chartWidth * index / (points.size - 1).coerceAtLeast(1)
@@ -312,25 +347,27 @@ private fun LineChartCanvas(
         for (i in 0..3) {
             val y = chartTop + chartHeight * i / 3
             drawLine(gridColor, Offset(chartLeft, y), Offset(chartRight, y), strokeWidth = 1.dp.toPx())
-            val value = yMax - yRange * i / 3
-            val label = formatAxisValue(value)
-            val result = textMeasurer.measure(label, axisLabelStyleRight)
-            drawText(result, topLeft = Offset(chartLeft - result.size.width - 4.dp.toPx(), y - result.size.height / 2))
+            val result = textMeasurer.measure(yLabels[i], axisLabelStyleRight)
+            drawText(result, topLeft = Offset(chartLeft - result.size.width - labelGap, y - result.size.height / 2))
         }
 
-        // X-axis labels (max ~7 labels, keyed to index)
+        // X-axis labels with edge clamping
         val maxLabels = 7
         val labelStep = if (points.size <= maxLabels) 1 else points.size / maxLabels
+        val maxX = chartRight
+        val minX = chartLeft
         for (i in points.indices step labelStep) {
             val x = xPos(i)
             val result = textMeasurer.measure(points[i].label, axisLabelStyle)
-            drawText(result, topLeft = Offset(x - result.size.width / 2, chartBottom + 4.dp.toPx()))
+            val drawX = (x - result.size.width / 2).coerceIn(minX - result.size.width / 2, maxX - result.size.width)
+            drawText(result, topLeft = Offset(drawX, chartBottom + 4.dp.toPx()))
         }
         // Always last point label
         if (points.size > 1) {
             val lastX = xPos(points.size - 1)
             val lastResult = textMeasurer.measure(points.last().label, axisLabelStyle)
-            drawText(lastResult, topLeft = Offset(lastX - lastResult.size.width / 2, chartBottom + 4.dp.toPx()))
+            val drawX = (lastX - lastResult.size.width / 2).coerceIn(minX - lastResult.size.width / 2, maxX - lastResult.size.width)
+            drawText(lastResult, topLeft = Offset(drawX, chartBottom + 4.dp.toPx()))
         }
 
         // Line
@@ -351,7 +388,6 @@ private fun LineChartCanvas(
             if (i == selectedIndex) {
                 drawCircle(primaryColor, radius = 8.dp.toPx(), center = Offset(x, y))
                 drawCircle(Color.White, radius = 4.dp.toPx(), center = Offset(x, y))
-                // Dashed drop line
                 val dashPath = Path().apply {
                     moveTo(x, y + 10.dp.toPx())
                     lineTo(x, chartBottom)
