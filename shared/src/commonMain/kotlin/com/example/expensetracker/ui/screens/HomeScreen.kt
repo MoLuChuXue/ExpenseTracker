@@ -701,7 +701,12 @@ private fun DayHeader(label: String, count: Int, total: Long, isExpanded: Boolea
             Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text("${count}笔", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text("¥${total.toMoneyString()}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
+        val isNetIncome = total < 0
+        val displayAmount = if (isNetIncome) -total else total
+        val sign = if (total == 0L) "" else if (isNetIncome) "+" else "-"
+        val amountColor = if (total == 0L) MaterialTheme.colorScheme.onSurfaceVariant
+            else if (isNetIncome) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+        Text("$sign¥${displayAmount.toMoneyString()}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = amountColor)
         Spacer(modifier = Modifier.width(8.dp))
         Icon(
             if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,

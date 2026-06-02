@@ -4,11 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FileUpload
@@ -56,7 +55,10 @@ fun SettingsDialog(
             Text("设置", fontWeight = FontWeight.SemiBold)
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
                 OutlinedTextField(
                     value = budgetText,
                     onValueChange = { newValue ->
@@ -97,46 +99,52 @@ fun SettingsDialog(
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(themePresets.size) { index ->
-                            val preset = themePresets[index]
-                            val isSelected = index == selectedThemeIndex
-
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { selectedThemeIndex = index }
-                                    .then(
-                                        if (isSelected) Modifier.border(2.dp, preset.primary, RoundedCornerShape(12.dp))
-                                        else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                                    )
-                                    .padding(12.dp)
+                        themePresets.chunked(3).forEach { row ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(preset.primary),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isSelected) {
-                                        Text("✓", color = MaterialTheme.colorScheme.onPrimary)
+                                row.forEach { preset ->
+                                    val index = themePresets.indexOf(preset)
+                                    val isSelected = index == selectedThemeIndex
+
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable { selectedThemeIndex = index }
+                                            .then(
+                                                if (isSelected) Modifier.border(2.dp, preset.primary, RoundedCornerShape(12.dp))
+                                                else Modifier.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                            )
+                                            .padding(12.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(preset.primary),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isSelected) {
+                                                Text("✓", color = MaterialTheme.colorScheme.onPrimary)
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            preset.name,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isSelected) preset.primary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    preset.name,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (isSelected) preset.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
                             }
                         }
                     }

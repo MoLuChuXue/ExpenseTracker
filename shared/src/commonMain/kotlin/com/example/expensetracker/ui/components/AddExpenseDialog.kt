@@ -2,10 +2,9 @@ package com.example.expensetracker.ui.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
@@ -81,7 +80,10 @@ fun AddExpenseDialog(
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(24.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
                 // Type toggle
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -162,31 +164,37 @@ fun AddExpenseDialog(
                             Text("管理", style = MaterialTheme.typography.labelSmall)
                         }
                     }
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(currentCategories) { category ->
-                            val isSelected = selectedCategory == category.name
-                            Surface(
-                                modifier = Modifier.fillMaxWidth().clickable { selectedCategory = category.name },
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) category.color.copy(alpha = 0.12f)
-                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        currentCategories.chunked(3).forEach { row ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(category.icon, contentDescription = null, modifier = Modifier.size(22.dp),
-                                        tint = if (isSelected) category.color else MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(category.name, style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (isSelected) category.color else MaterialTheme.colorScheme.onSurfaceVariant)
+                                row.forEach { category ->
+                                    val isSelected = selectedCategory == category.name
+                                    Surface(
+                                        modifier = Modifier.weight(1f).clickable { selectedCategory = category.name },
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (isSelected) category.color.copy(alpha = 0.12f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(category.icon, contentDescription = null, modifier = Modifier.size(22.dp),
+                                                tint = if (isSelected) category.color else MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(category.name, style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                color = if (isSelected) category.color else MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
                                 }
+                                repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
                             }
                         }
                     }
