@@ -425,43 +425,69 @@ private fun computeBalancePoints(
 ): List<BalancePoint> {
     val sorted = expenses.sortedBy { it.dateMillis }
 
-    val beforeNet = sorted
-        .filter { it.dateMillis < startMillis }
-        .sumOf { if (it.type == "income") it.amount else -it.amount }
-
-    var running = initialBalance + beforeNet
-    val result = mutableListOf<BalancePoint>()
-
     when (period) {
         LineChartPeriod.WEEK, LineChartPeriod.MONTH -> {
+            val dayCount = ((endMillis - startMillis) / 86_400_000L + 1).toInt()
+            val dayExpense = LongArray(dayCount)
+            val dayIncome = LongArray(dayCount)
+
+            var idx = 0
+            var beforeNet = 0L
+            while (idx < sorted.size && sorted[idx].dateMillis < startMillis) {
+                beforeNet += if (sorted[idx].type == "income") sorted[idx].amount else -sorted[idx].amount
+                idx++
+            }
+            while (idx < sorted.size && sorted[idx].dateMillis <= endMillis) {
+                val e = sorted[idx]
+                val dayIdx = ((e.dateMillis - startMillis) / 86_400_000L).toInt()
+                if (dayIdx in 0 until dayCount) {
+                    if (e.type == "income") dayIncome[dayIdx] += e.amount else dayExpense[dayIdx] += e.amount
+                }
+                idx++
+            }
+
+            var running = initialBalance + beforeNet
+            val result = mutableListOf<BalancePoint>()
             var dayStart = startMillis
-            while (dayStart <= endMillis) {
-                val dayEnd = dayStart + 86_400_000L - 1
-                val dayExpenses = sorted.filter { it.dateMillis in dayStart..dayEnd }
-                val dayExpense = dayExpenses.filter { it.type == "expense" }.sumOf { it.amount }
-                val dayIncome = dayExpenses.filter { it.type == "income" }.sumOf { it.amount }
-                running += dayIncome - dayExpense
-                result.add(BalancePoint(dayStart, formatDate(dayStart, "MM/dd"), running, dayExpense, dayIncome))
+            for (i in 0 until dayCount) {
+                running += dayIncome[i] - dayExpense[i]
+                result.add(BalancePoint(dayStart, formatDate(dayStart, "MM/dd"), running, dayExpense[i], dayIncome[i]))
                 dayStart = addDays(dayStart, 1)
+            }
+            return result.filterIndexed { i, pt ->
+                i == 0 || i == result.lastIndex || pt.expense > 0L || pt.income > 0L
             }
         }
         LineChartPeriod.YEAR -> {
+            val monthExpense = LongArray(12)
+            val monthIncome = LongArray(12)
+
+            var idx = 0
+            var beforeNet = 0L
+            while (idx < sorted.size && sorted[idx].dateMillis < startMillis) {
+                beforeNet += if (sorted[idx].type == "income") sorted[idx].amount else -sorted[idx].amount
+                idx++
+            }
+            while (idx < sorted.size && sorted[idx].dateMillis <= endMillis) {
+                val e = sorted[idx]
+                val m = getMonth(e.dateMillis) - 1
+                if (m in 0..11) {
+                    if (e.type == "income") monthIncome[m] += e.amount else monthExpense[m] += e.amount
+                }
+                idx++
+            }
+
+            var running = initialBalance + beforeNet
+            val result = mutableListOf<BalancePoint>()
             for (m in 1..12) {
                 val monthStart = startOfDay(getYear(startMillis), m, 1)
-                val monthEnd = if (m == 12) endMillis
-                else startOfDay(getYear(startMillis), m + 1, 1) - 1
-                val monthExpenses = sorted.filter { it.dateMillis in monthStart..monthEnd }
-                val monthExpense = monthExpenses.filter { it.type == "expense" }.sumOf { it.amount }
-                val monthIncome = monthExpenses.filter { it.type == "income" }.sumOf { it.amount }
-                running += monthIncome - monthExpense
-                result.add(BalancePoint(monthStart, "${m}月", running, monthExpense, monthIncome))
+                running += monthIncome[m - 1] - monthExpense[m - 1]
+                result.add(BalancePoint(monthStart, "${m}月", running, monthExpense[m - 1], monthIncome[m - 1]))
+            }
+            return result.filterIndexed { i, pt ->
+                i == 0 || i == result.lastIndex || pt.expense > 0L || pt.income > 0L
             }
         }
-    }
-
-    // Keep only days with transactions, plus first and last as anchors
-    return result.filterIndexed { i, pt ->
-        i == 0 || i == result.lastIndex || pt.expense > 0L || pt.income > 0L
     }
 }
 

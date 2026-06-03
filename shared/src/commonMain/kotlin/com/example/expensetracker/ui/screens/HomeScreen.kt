@@ -56,10 +56,12 @@ fun HomeScreen(
     themeIndex: Int,
     customExpenseJson: String,
     customIncomeJson: String,
+    allExpenses: List<Expense> = expenses,
+    frameRateMode: Int = 0,
     onAddExpense: (Long, String, String, Long, String) -> Unit,
     onUpdateExpense: (Expense) -> Unit,
     onDeleteExpense: (Expense) -> Unit,
-    onSaveSettings: (Long, Long, Int) -> Unit,
+    onSaveSettings: (Long, Long, Int, Int) -> Unit,
     onSaveCustomCategories: (String, String) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
@@ -86,7 +88,7 @@ fun HomeScreen(
     val nowYear = currentYear()
     val nowMonth = currentMonth()
     val nowDay = currentDay()
-    var timeFilter by remember { mutableStateOf(TimeFilter.ALL) }
+    var timeFilter by remember { mutableStateOf(TimeFilter.MONTH) }
     var filterYear by remember { mutableIntStateOf(nowYear) }
     var filterMonth by remember { mutableIntStateOf(nowMonth) }
     var filterDay by remember { mutableIntStateOf(nowDay) }
@@ -99,49 +101,53 @@ fun HomeScreen(
     val startPickerState = rememberDatePickerState()
     val endPickerState = rememberDatePickerState()
 
-    val timeFilteredExpenses = remember(timeFilter, expenses, filterYear, filterMonth, filterDay, rangeStart, rangeEnd) {
-        when (timeFilter) {
-            TimeFilter.ALL -> expenses
-            TimeFilter.DAY -> expenses.filter { isSameDay(it.dateMillis, filterYear, filterMonth, filterDay) }
-            TimeFilter.MONTH -> expenses.filter { isSameMonth(it.dateMillis, filterYear, filterMonth) }
-            TimeFilter.YEAR -> expenses.filter { isSameYear(it.dateMillis, filterYear) }
-            TimeFilter.RANGE -> {
-                val s = rangeStart
-                val e = rangeEnd
-                if (s != null && e != null) expenses.filter { it.dateMillis in s..e }
-                else expenses
+    val timeFilteredExpenses by remember(timeFilter, expenses, filterYear, filterMonth, filterDay, rangeStart, rangeEnd) {
+        derivedStateOf {
+            when (timeFilter) {
+                TimeFilter.ALL -> expenses
+                TimeFilter.DAY -> expenses.filter { isSameDay(it.dateMillis, filterYear, filterMonth, filterDay) }
+                TimeFilter.MONTH -> expenses.filter { isSameMonth(it.dateMillis, filterYear, filterMonth) }
+                TimeFilter.YEAR -> expenses.filter { isSameYear(it.dateMillis, filterYear) }
+                TimeFilter.RANGE -> {
+                    val s = rangeStart
+                    val e = rangeEnd
+                    if (s != null && e != null) expenses.filter { it.dateMillis in s..e }
+                    else expenses
+                }
             }
         }
     }
-    val filteredTotalExpense = remember(timeFilteredExpenses) {
-        timeFilteredExpenses.filter { it.type == "expense" }.sumOf { it.amount }
+    val filteredTotalExpense by remember(timeFilteredExpenses) {
+        derivedStateOf { timeFilteredExpenses.filter { it.type == "expense" }.sumOf { it.amount } }
     }
-    val filteredTotalIncome = remember(timeFilteredExpenses) {
-        timeFilteredExpenses.filter { it.type == "income" }.sumOf { it.amount }
-    }
-
-    // 全时段收支（amount 已是 Long 分币，直接累加）
-    val allTimeTotalExpense = remember(expenses) {
-        expenses.filter { it.type == "expense" }.sumOf { it.amount }
-    }
-    val allTimeTotalIncome = remember(expenses) {
-        expenses.filter { it.type == "income" }.sumOf { it.amount }
+    val filteredTotalIncome by remember(timeFilteredExpenses) {
+        derivedStateOf { timeFilteredExpenses.filter { it.type == "income" }.sumOf { it.amount } }
     }
 
-    // 预建分类查找表 — 避免滚动时每项都 JSON 解析
+    val allTimeTotalExpense by remember(expenses) {
+        derivedStateOf { expenses.filter { it.type == "expense" }.sumOf { it.amount } }
+    }
+    val allTimeTotalIncome by remember(expenses) {
+        derivedStateOf { expenses.filter { it.type == "income" }.sumOf { it.amount } }
+    }
+
     val categoryMap = remember(customExpenseJson, customIncomeJson) {
         buildCategoryLookup(customExpenseJson, customIncomeJson)
     }
 
-    val currentMonthExpense = remember(expenses, nowYear, nowMonth) {
-        expenses.filter {
-            it.type == "expense" && isSameMonth(it.dateMillis, nowYear, nowMonth)
-        }.sumOf { it.amount }
+    val currentMonthExpense by remember(expenses, nowYear, nowMonth) {
+        derivedStateOf {
+            expenses.filter {
+                it.type == "expense" && isSameMonth(it.dateMillis, nowYear, nowMonth)
+            }.sumOf { it.amount }
+        }
     }
 
-    val filteredExpenses = remember(timeFilteredExpenses, searchQuery) {
-        if (searchQuery.isBlank()) timeFilteredExpenses
-        else timeFilteredExpenses.filter { it.note.contains(searchQuery, ignoreCase = true) }
+    val filteredExpenses by remember(timeFilteredExpenses, searchQuery) {
+        derivedStateOf {
+            if (searchQuery.isBlank()) timeFilteredExpenses
+            else timeFilteredExpenses.filter { it.note.contains(searchQuery, ignoreCase = true) }
+        }
     }
 
     Scaffold(
@@ -180,11 +186,27 @@ fun HomeScreen(
         if (expenses.isEmpty()) {
             EmptyState(modifier = Modifier.padding(paddingValues))
         } else {
-            // Pre-compute grouped/sorted lists in @Composable scope
-            val categoryGrouped = remember(filteredExpenses) { filteredExpenses.groupBy { it.category } }
-            val amountSortedDesc = remember(filteredExpenses) { filteredExpenses.sortedByDescending { it.amount } }
-            val amountSortedAsc = remember(filteredExpenses) { filteredExpenses.sortedBy { it.amount } }
-            val dateGrouped = remember(filteredExpenses) { filteredExpenses.groupBy { formatDate(it.dateMillis, "yyyyMMdd") } }
+            // Only compute the grouping/sorting needed for the current sort mode
+            val categoryGrouped by remember(filteredExpenses, sortMode) {
+                derivedStateOf {
+                    if (sortMode == SortMode.BY_CATEGORY) filteredExpenses.groupBy { it.category } else emptyMap()
+                }
+            }
+            val amountSortedDesc by remember(filteredExpenses, sortMode) {
+                derivedStateOf {
+                    if (sortMode == SortMode.BY_AMOUNT_DESC) filteredExpenses.sortedByDescending { it.amount } else emptyList()
+                }
+            }
+            val amountSortedAsc by remember(filteredExpenses, sortMode) {
+                derivedStateOf {
+                    if (sortMode == SortMode.BY_AMOUNT_ASC) filteredExpenses.sortedBy { it.amount } else emptyList()
+                }
+            }
+            val dateGrouped by remember(filteredExpenses, sortMode) {
+                derivedStateOf {
+                    if (sortMode == SortMode.BY_DATE) filteredExpenses.groupBy { formatDate(it.dateMillis, "yyyyMMdd") } else emptyMap()
+                }
+            }
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
@@ -534,12 +556,12 @@ fun HomeScreen(
     }
 
     if (showChartDialog) {
-        PieChartDialog(expenses = expenses, onDismiss = { showChartDialog = false }, customExpenseJson = customExpenseJson, customIncomeJson = customIncomeJson)
+        PieChartDialog(expenses = allExpenses, onDismiss = { showChartDialog = false }, customExpenseJson = customExpenseJson, customIncomeJson = customIncomeJson)
     }
 
     if (showLineChartDialog) {
         AssetLineChartDialog(
-            expenses = expenses,
+            expenses = allExpenses,
             initialBalance = balance,
             onDismiss = { showLineChartDialog = false }
         )
@@ -550,9 +572,10 @@ fun HomeScreen(
             currentBudget = budget, currentBalance = balance, currentThemeIndex = themeIndex,
             backupFolderUri = backupFolderUri,
             backupEnabled = backupEnabled,
+            frameRateMode = frameRateMode,
             onDismiss = { showSettingsDialog = false },
-            onSave = { newBudget, newBalance, newThemeIndex ->
-                onSaveSettings(newBudget, newBalance, newThemeIndex)
+            onSave = { newBudget, newBalance, newThemeIndex, newFrameRate ->
+                onSaveSettings(newBudget, newBalance, newThemeIndex, newFrameRate)
                 showSettingsDialog = false
             },
             onExport = onExport,

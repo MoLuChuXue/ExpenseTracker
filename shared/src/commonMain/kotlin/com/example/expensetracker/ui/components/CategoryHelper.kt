@@ -2,12 +2,14 @@ package com.example.expensetracker.ui.components
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.expensetracker.ui.theme.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
+@Immutable
 data class CategoryInfo(
     val name: String,
     val icon: ImageVector,

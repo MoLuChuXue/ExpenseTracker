@@ -31,7 +31,8 @@ fun App(
     pendingImportJson: String? = null,
     onImportHandled: (() -> Unit)? = null,
     onAutoBackup: ((String) -> Unit)? = null,
-    onPickBackupFolder: (() -> Unit)? = null
+    onPickBackupFolder: (() -> Unit)? = null,
+    onApplyFrameRate: ((Int) -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
     val dataChangeSignal = remember { mutableIntStateOf(0) }
@@ -42,6 +43,7 @@ fun App(
     }
 
     val expenses by viewModel.expenses.collectAsState()
+    val allExpenses by viewModel.allExpenses.collectAsState()
 
     var themeIndex by remember { mutableIntStateOf(settingsManager.themeIndex) }
     var budget by remember { mutableStateOf(settingsManager.budget) }
@@ -51,6 +53,7 @@ fun App(
     var backupFolderUri by remember { mutableStateOf(settingsManager.backupFolderUri) }
     var backupEnabled by remember { mutableStateOf(settingsManager.backupEnabled) }
     var balanceHidden by remember { mutableStateOf(settingsManager.balanceHidden) }
+    var frameRateMode by remember { mutableIntStateOf(settingsManager.frameRateMode) }
 
     // Auto-backup on data changes
     LaunchedEffect(dataChangeSignal.intValue) {
@@ -61,7 +64,7 @@ fun App(
                         exportDate = formatDate(Clock.System.now().toEpochMilliseconds(), "yyyy/MM/dd HH:mm"),
                         budget = budget,
                         balance = balance,
-                        expenses = expenses.map { it.toBackup() }
+                        expenses = allExpenses.map { it.toBackup() }
                     )
                 )
             }
@@ -104,6 +107,7 @@ fun App(
     ExpenseTrackerTheme(themePreset = currentPreset) {
         HomeScreen(
             expenses = expenses,
+            allExpenses = allExpenses,
             budget = budget,
             balance = balance,
             themeIndex = themeIndex,
@@ -118,13 +122,16 @@ fun App(
             onDeleteExpense = { expense ->
                 viewModel.deleteExpense(expense)
             },
-            onSaveSettings = { newBudget, newBalance, newThemeIndex ->
+            onSaveSettings = { newBudget, newBalance, newThemeIndex, newFrameRate ->
                 budget = newBudget
                 balance = newBalance
                 themeIndex = newThemeIndex
+                frameRateMode = newFrameRate
                 settingsManager.budget = newBudget
                 settingsManager.balance = newBalance
                 settingsManager.themeIndex = newThemeIndex
+                settingsManager.frameRateMode = newFrameRate
+                onApplyFrameRate?.invoke(newFrameRate)
             },
             onSaveCustomCategories = { expenseJson, incomeJson ->
                 customExpenseJson = expenseJson
@@ -138,7 +145,7 @@ fun App(
                     exportDate = formatDate(now, "yyyy/MM/dd HH:mm"),
                     budget = budget,
                     balance = balance,
-                    expenses = expenses.map { it.toBackup() }
+                    expenses = allExpenses.map { it.toBackup() }
                 )
                 onExportData?.invoke(exportToJson(data))
             },
@@ -150,6 +157,7 @@ fun App(
                 backupEnabled = enabled
                 settingsManager.backupEnabled = enabled
             },
+            frameRateMode = frameRateMode,
             balanceHidden = balanceHidden,
             onToggleBalanceHidden = {
                 balanceHidden = !balanceHidden

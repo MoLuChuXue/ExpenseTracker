@@ -12,6 +12,9 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses ORDER BY dateMillis DESC")
     fun getAllExpenses(): Flow<List<Expense>>
 
+    @Query("SELECT * FROM expenses ORDER BY dateMillis DESC LIMIT :limit")
+    fun getRecentExpenses(limit: Int = 3000): Flow<List<Expense>>
+
     @Query("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE type = 'expense'")
     fun getTotalExpense(): Flow<Long>
 

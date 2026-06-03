@@ -13,7 +13,10 @@ class ExpenseViewModel(
     private val scope: CoroutineScope,
     private val onDataChanged: (() -> Unit)? = null
 ) {
-    val expenses: StateFlow<List<Expense>> = dao.getAllExpenses()
+    val expenses: StateFlow<List<Expense>> = dao.getRecentExpenses()
+        .stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allExpenses: StateFlow<List<Expense>> = dao.getAllExpenses()
         .stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val totalExpense: StateFlow<Long> = dao.getTotalExpense()

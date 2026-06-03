@@ -40,6 +40,10 @@ class SettingsManager {
     var balanceHidden: Boolean
         get() = settings.getBoolean("balance_hidden", false)
         set(value) = settings.putBoolean("balance_hidden", value)
+
+    var frameRateMode: Int
+        get() = settings.getInt("frame_rate_mode", 0)
+        set(value) = settings.putInt("frame_rate_mode", value)
 }
 
 expect fun getSettings(): Settings

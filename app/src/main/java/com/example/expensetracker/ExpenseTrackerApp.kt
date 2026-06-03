@@ -15,7 +15,8 @@ import java.util.*
 @Composable
 fun ExpenseTrackerApp(
     database: ExpenseDatabase,
-    settingsManager: SettingsManager
+    settingsManager: SettingsManager,
+    onApplyFrameRate: ((Int) -> Unit)? = null
 ) {
     val context = LocalContext.current
     var pendingExportJson by remember { mutableStateOf<String?>(null) }
@@ -122,6 +123,7 @@ fun ExpenseTrackerApp(
         },
         onPickBackupFolder = {
             backupFolderLauncher.launch(null)
-        }
+        },
+        onApplyFrameRate = onApplyFrameRate
     )
 }

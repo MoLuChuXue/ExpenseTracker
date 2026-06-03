@@ -1,5 +1,6 @@
 package com.example.expensetracker.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -9,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -16,6 +18,13 @@ import androidx.compose.ui.unit.dp
 import com.example.expensetracker.data.Expense
 import com.example.expensetracker.util.formatDate
 import com.example.expensetracker.util.toMoneyString
+
+private val ItemShape = RoundedCornerShape(12.dp)
+private val IconBgShape = RoundedCornerShape(10.dp)
+private val DialogShape = RoundedCornerShape(20.dp)
+private val DialogInnerShape = RoundedCornerShape(12.dp)
+private val DialogIconShape = RoundedCornerShape(8.dp)
+private val DialogBtnShape = RoundedCornerShape(10.dp)
 
 @Composable
 fun ExpenseItem(
@@ -37,25 +46,22 @@ fun ExpenseItem(
     Surface(
         modifier = modifier.fillMaxWidth(),
         onClick = onEdit,
-        shape = RoundedCornerShape(12.dp),
+        shape = ItemShape,
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 0.dp
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 14.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                modifier = Modifier.size(40.dp),
-                shape = RoundedCornerShape(10.dp),
-                color = category.color.copy(alpha = 0.12f)
+            Box(
+                modifier = Modifier.size(40.dp).clip(IconBgShape).background(category.color.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = category.icon,
                     contentDescription = expense.category,
-                    modifier = Modifier.padding(9.dp).fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().padding(9.dp),
                     tint = category.color
                 )
             }
@@ -112,7 +118,7 @@ fun ExpenseItem(
         val amountColor = if (isIncome) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            shape = RoundedCornerShape(20.dp),
+            shape = DialogShape,
             title = {
                 Text(
                     "确认删除",
@@ -128,7 +134,7 @@ fun ExpenseItem(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
+                        shape = DialogInnerShape,
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                     ) {
                         Row(
@@ -136,15 +142,14 @@ fun ExpenseItem(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Surface(
-                                modifier = Modifier.size(32.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                color = category.color.copy(alpha = 0.12f)
+                            Box(
+                                modifier = Modifier.size(32.dp).clip(DialogIconShape).background(category.color.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = category.icon,
                                     contentDescription = null,
-                                    modifier = Modifier.padding(7.dp).fillMaxSize(),
+                                    modifier = Modifier.fillMaxSize().padding(7.dp),
                                     tint = category.color
                                 )
                             }
@@ -184,7 +189,7 @@ fun ExpenseItem(
                         showDeleteConfirm = false
                         onDelete()
                     },
-                    shape = RoundedCornerShape(10.dp),
+                    shape = DialogBtnShape,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("确认删除", modifier = Modifier.padding(horizontal = 12.dp))
@@ -193,7 +198,7 @@ fun ExpenseItem(
             dismissButton = {
                 OutlinedButton(
                     onClick = { showDeleteConfirm = false },
-                    shape = RoundedCornerShape(10.dp)
+                    shape = DialogBtnShape
                 ) {
                     Text("取消", modifier = Modifier.padding(horizontal = 12.dp))
                 }

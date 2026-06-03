@@ -36,8 +36,9 @@ fun SettingsDialog(
     currentThemeIndex: Int,
     backupFolderUri: String = "",
     backupEnabled: Boolean = false,
+    frameRateMode: Int = 0,
     onDismiss: () -> Unit,
-    onSave: (budget: Long, balance: Long, themeIndex: Int) -> Unit,
+    onSave: (budget: Long, balance: Long, themeIndex: Int, frameRateMode: Int) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
     onPickBackupFolder: (() -> Unit)? = null,
@@ -46,6 +47,7 @@ fun SettingsDialog(
     var budgetText by remember { mutableStateOf(if (currentBudget > 0) currentBudget.toMoneyString() else "") }
     var balanceText by remember { mutableStateOf(if (currentBalance > 0) currentBalance.toMoneyString() else "") }
     var selectedThemeIndex by remember { mutableStateOf(currentThemeIndex) }
+    var selectedFrameRate by remember { mutableIntStateOf(frameRateMode) }
     var showImportConfirm by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -145,6 +147,42 @@ fun SettingsDialog(
                                     }
                                 }
                                 repeat(3 - row.size) { Spacer(modifier = Modifier.weight(1f)) }
+                            }
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "刷新率",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val rates = listOf(0 to "自动", 60 to "60Hz", 90 to "90Hz", 120 to "120Hz")
+                        rates.forEach { (rate, label) ->
+                            val selected = rate == selectedFrameRate
+                            Surface(
+                                modifier = Modifier.weight(1f).clickable { selectedFrameRate = rate },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            ) {
+                                Text(
+                                    label,
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (selected) MaterialTheme.colorScheme.onPrimary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -274,7 +312,7 @@ fun SettingsDialog(
                 onClick = {
                     val budget = budgetText.parseCents()
                     val balance = balanceText.parseCents()
-                    onSave(budget, balance, selectedThemeIndex)
+                    onSave(budget, balance, selectedThemeIndex, selectedFrameRate)
                 },
                 shape = RoundedCornerShape(10.dp)
             ) {
