@@ -14,16 +14,16 @@ class ExpenseViewModel(
     private val onDataChanged: (() -> Unit)? = null
 ) {
     val expenses: StateFlow<List<Expense>> = dao.getRecentExpenses()
-        .stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(scope, SharingStarted.WhileSubscribed(1000), emptyList())
 
     val allExpenses: StateFlow<List<Expense>> = dao.getAllExpenses()
-        .stateIn(scope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(scope, SharingStarted.WhileSubscribed(1000), emptyList())
 
     val totalExpense: StateFlow<Long> = dao.getTotalExpense()
-        .stateIn(scope, SharingStarted.WhileSubscribed(5000), 0L)
+        .stateIn(scope, SharingStarted.WhileSubscribed(1000), 0L)
 
     val totalIncome: StateFlow<Long> = dao.getTotalIncome()
-        .stateIn(scope, SharingStarted.WhileSubscribed(5000), 0L)
+        .stateIn(scope, SharingStarted.WhileSubscribed(1000), 0L)
 
     fun addExpense(amount: Long, category: String, note: String, dateMillis: Long, type: String = "expense") {
         scope.launch {

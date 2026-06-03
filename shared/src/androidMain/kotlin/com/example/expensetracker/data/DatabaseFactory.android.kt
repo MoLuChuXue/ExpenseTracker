@@ -7,12 +7,24 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 actual class DatabaseFactory(private val context: Context) {
     actual fun create(): ExpenseDatabase {
-        return Room.databaseBuilder(
+        val db = Room.databaseBuilder(
             context.applicationContext,
             ExpenseDatabase::class.java,
             "expense_database"
         ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
+
+        // Clean up WAL on background thread (outside Room's init cycle)
+        Thread {
+            try {
+                db.openHelper.writableDatabase.apply {
+                    execSQL("PRAGMA journal_size_limit = 5242880")
+                    execSQL("PRAGMA wal_checkpoint(FULL)")
+                }
+            } catch (_: Exception) { }
+        }.start()
+
+        return db
     }
 
     companion object {

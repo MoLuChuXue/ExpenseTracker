@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.expensetracker"
         minSdk = 26
         targetSdk = 34
-        versionCode = 37
-        versionName = "3.3.2"
+        versionCode = 38
+        versionName = "3.3.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
